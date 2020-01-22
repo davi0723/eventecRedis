@@ -1,149 +1,122 @@
-const jssubcbMethods = {}
-const counts = 20
-const toCamelCase = (str) => {
-    const s =
-      str &&
-      str
-        .match(
-          /[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g
-        )
-        .map((x) => x.slice(0, 1).toUpperCase() + x.slice(1).toLowerCase())
-        .join('')
-    return s.slice(0, 1).toLowerCase() + s.slice(1)
-}
-window.jssubcallback = (topic, msg) => {
+/* eslint-disable no-undef */
+/**
+ * @Author: urcool
+ * @Date: 2020-01-21 15:25:58
+ * Basic methods
+ */
+const toCamelCase = str => {
+  const s =
+    str &&
+    str
+      .match(
+        /[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g
+      )
+      .map(x => x.slice(0, 1).toUpperCase() + x.slice(1).toLowerCase())
+      .join("");
+  return s.slice(0, 1).toLowerCase() + s.slice(1);
+};
+const basicFn = (action, topic, msg = null, cb = null) =>
+  new Promise((resolve, reject) => {
+    if (!android) {
+      reject(new Error("android is undefined"));
+    }
+    if (msg && typeof msg !== "string") {
+      msg = JSON.stringify(msg);
+    }
+    let res = false;
+    let timer = null;
+    let count = 10;
+    clearInterval(timer);
+    timer = setInterval(() => {
+      res = android[`Native${action}`](topic, msg);
+      count--;
+      if (res) {
+        cb && cb();
+        clearInterval(timer);
+        try {
+          res = JSON.parse(res);
+        } catch (e) {}
+        resolve(res);
+      }
+      if (count <= 0) {
+        clearInterval(timer);
+        reject(new Error("redis conn error"));
+      }
+    }, 100);
+  });
+
+/**
+ * @Author: urcool
+ * @Date: 2020-01-21 15:26:09
+ * Global variables
+ */
+const jssubcbMethods = {};
+const taskList = [];
+const taskExecSpeed = 500;
+const jssubcallback = (topic, msg) => {
   try {
-    msg = JSON.parse(msg)
+    msg = JSON.parse(msg);
   } catch (e) {
-    console.log(e.message)
+    console.log(e.message);
   }
-  if (typeof msg !== 'object') {
-    return false
+  if (typeof msg !== "object") {
+    return false;
   }
-  console.log('android msg:', msg)
-  const callback = jssubcbMethods[toCamelCase(topic)]
-  callback && callback(msg)
-}
-// android pub
-exports.Pub = (msg, topic) => {
-  return new Promise((resolve, reject) => {
-    if (!android) {
-      reject(new Error('android is undefined'))
+  const callback = jssubcbMethods[toCamelCase(topic)];
+  callback && callback(msg);
+};
+/**
+ * @Author: urcool
+ * @Date: 2020-01-21 15:58:38
+ * Install function
+ */
+const install = (Vue, options) => {
+  if (window) {
+    window.jssubcallback = jssubcallback;
+  }
+  const bus = new Vue();
+  if (!bus.$bus) {
+    Vue.prototype.$bus = bus;
+  }
+
+  let taskTimer = null;
+  let FreezingTime = taskExecSpeed;
+
+  clearTimeout(taskTimer);
+  taskTimer = setTimeout(function aaa() {
+    const a = taskList.shift();
+    FreezingTime = taskExecSpeed;
+    if (a) {
+      bus.$bus.$emit(options.event || "redisEvent", a);
+      FreezingTime = a.freezing_time || taskExecSpeed;
     }
-    if (msg === undefined) {
-      reject(new Error('param msg is required'))
-    }
-    if (typeof msg !== 'string') {
-      msg = JSON.stringify(msg)
-    }
-    let pubRes = false
-    let timer = null
-    let count = counts
-    clearInterval(timer)
-    timer = setInterval(() => {
-      pubRes = android.NativePub(topic, msg)
-      count--
-      if (pubRes) {
-        console.log('android pub', topic)
-        clearInterval(timer)
-        resolve(pubRes)
-      }
-      if (count <= 0) {
-        clearInterval(timer)
-        reject(new Error('redis conn error'))
-      }
-    }, 100)
-  })
-}
+    this.timer = setTimeout(aaa, FreezingTime);
+  }, FreezingTime);
+};
+// android Sub
+const Sub = (topic, callback) =>
+  basicFn(
+    "Sub",
+    topic,
+    null,
+    () => (jssubcallback[toCamelCase(topic)] = callback)
+  );
+
+Sub("ui.update", msg => {
+  taskList.push(msg);
+});
+
+// android Pub
+const Pub = (topic, msg) => basicFn("Pub", topic, msg);
 // android Get
-exports.Get = (key) => {
-  return new Promise((resolve, reject) => {
-    if (!android) {
-      reject(new Error('android is undefined'))
-    }
-    if (!key || typeof key !== 'string') {
-      reject(new Error('argument key[string] is required'))
-    }
-    let getRes = false
-    let timer = null
-    let count = counts
-    clearInterval(timer)
-    timer = setInterval(() => {
-      getRes = android.NativeGet(key)
-      count--
-      console.log('android get:', getRes)
-      if (getRes !== undefined) {
-        clearInterval(timer)
-        try {
-          getRes = JSON.parse(getRes)
-        } catch (e) {
-          console.log(e.message)
-        }
-        resolve(getRes)
-      }
-      if (count <= 0) {
-        clearInterval(timer)
-        reject(new Error('redis conn error'))
-      }
-    }, 100)
-  })
-}
-// android Get
-exports.GetJson = (key, path = '.') => {
-  return new Promise((resolve, reject) => {
-    if (!android) {
-      reject(new Error('android is undefined'))
-    }
-    if (!key || typeof key !== 'string') {
-      reject(new Error('argument key[string] is required'))
-    }
-    let getRes = false
-    let timer = null
-    let count = counts
-    clearInterval(timer)
-    timer = setInterval(() => {
-      getRes = android.NativeGet(key, path)
-      count--
-      console.log('android getJson:', getRes)
-      if (getRes !== undefined) {
-        clearInterval(timer)
-        try {
-          getRes = JSON.parse(getRes)
-        } catch (e) {
-          console.log(e.message)
-        }
-        resolve(getRes)
-      }
-      if (count <= 0) {
-        clearInterval(timer)
-        reject(new Error('redis conn error'))
-      }
-    }, 100)
-  })
-}
-// android sub
-exports.Sub = (topic, callback) => {
-  return new Promise((resolve, reject) => {
-    if (!android) {
-      reject(new Error('android is undefined'))
-    }
-    let subRes = false
-    let timer = null
-    let count = counts
-    clearInterval(timer)
-    timer = setInterval(() => {
-      subRes = android.NativeSub(topic)
-      count--
-      if (subRes) {
-        jssubcbMethods[toCamelCase(topic)] = callback
-        console.log('android sub:', topic)
-        clearInterval(timer)
-        resolve(subRes)
-      }
-      if (count <= 0) {
-        clearInterval(timer)
-        reject(new Error('redis conn error'))
-      }
-    }, 100)
-  })
-}
+const Get = key => basicFn("Get", key);
+// android GetJSON
+const GetJson = (key, path = ".") => basicFn("Get", key, path);
+
+export default {
+  install,
+  Get,
+  GetJson,
+  Pub,
+  Sub
+};

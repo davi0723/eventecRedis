@@ -1,0 +1,23 @@
+{
+  "name": "eventecredis",
+  "version": "1.0.1",
+  "description": "eventec redis event",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davi0723/eventecRedis.git"
+  },
+  "keywords": [
+    "eventec",
+    "redis"
+  ],
+  "author": "urcool",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/davi0723/eventecRedis/issues"
+  },
+  "homepage": "https://github.com/davi0723/eventecRedis#readme"
+}
