@@ -52,7 +52,6 @@ const basicFn = (action, topic, msg = null, cb = null) =>
  */
 const jssubcbMethods = {};
 const taskList = [];
-const taskExecSpeed = 500;
 const jssubcallback = (topic, msg) => {
   try {
     msg = JSON.parse(msg);
@@ -65,34 +64,6 @@ const jssubcallback = (topic, msg) => {
   const callback = jssubcbMethods[toCamelCase(topic)];
   callback && callback(msg);
 };
-/**
- * @Author: urcool
- * @Date: 2020-01-21 15:58:38
- * Install function
- */
-const install = (Vue, options) => {
-  if (window) {
-    window.jssubcallback = jssubcallback;
-  }
-  const bus = new Vue();
-  if (!bus.$bus) {
-    Vue.prototype.$bus = bus;
-  }
-
-  let taskTimer = null;
-  let FreezingTime = taskExecSpeed;
-
-  clearTimeout(taskTimer);
-  taskTimer = setTimeout(function aaa() {
-    const a = taskList.shift();
-    FreezingTime = taskExecSpeed;
-    if (a) {
-      bus.$bus.$emit(options.event || "redisEvent", a);
-      FreezingTime = a.freezing_time || taskExecSpeed;
-    }
-    this.timer = setTimeout(aaa, FreezingTime);
-  }, FreezingTime);
-};
 // android Sub
 const Sub = (topic, callback) =>
   basicFn(
@@ -102,10 +73,6 @@ const Sub = (topic, callback) =>
     () => (jssubcallback[toCamelCase(topic)] = callback)
   );
 
-Sub("ui.update", msg => {
-  taskList.push(msg);
-});
-
 // android Pub
 const Pub = (topic, msg) => basicFn("Pub", topic, msg);
 // android Get
@@ -113,6 +80,59 @@ const Get = key => basicFn("Get", key);
 // android GetJSON
 const GetJson = (key, path = ".") => basicFn("Get", key, path);
 
+const defaultFn = a => {
+  const { view, id, variables } = a;
+  let url = "/" + view;
+  if (id) {
+    url += "/" + id;
+  }
+  return {
+    path: url,
+    query: variables
+  };
+};
+/**
+ * @Author: urcool
+ * @Date: 2020-01-21 15:58:38
+ * Install function
+ */
+const install = (Vue, options = {}) => {
+  const taskExecSpeed = options.taskExecSpeed || 500;
+  const fn = options.fn || defaultFn;
+  if (window) {
+    window.jssubcallback = jssubcallback;
+  }
+  const bus = new Vue();
+  if (!bus.$bus) {
+    Vue.prototype.$bus = bus;
+  }
+  let FreezingTime = taskExecSpeed;
+  setTimeout(function aaa() {
+    const a = taskList.shift();
+    FreezingTime = taskExecSpeed;
+    if (a) {
+      bus.$bus.$emit("router", a);
+      FreezingTime = a.freezing_time || taskExecSpeed;
+    }
+    setTimeout(aaa, FreezingTime);
+  }, FreezingTime);
+
+  Vue.mixin({
+    mounted() {
+      this.$bus.$on("router", a => {
+        this.$router.push(fn(a));
+      });
+    },
+    beforeDestory() {
+      this.$bus.$off("router", a => {
+        this.$router.push(a.view);
+      });
+    }
+  });
+  Sub("ui.update", msg => {
+    taskList.push(msg);
+  });
+};
 export default {
   install,
   Get,
