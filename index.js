@@ -121,6 +121,12 @@ const install = (Vue, options = {}) => {
     mounted() {
       this.$bus.$on("router", a => {
         this.$router.push(fn(a));
+        if (a.variables && this.$store) {
+          Object.entires(a.variables).forEach(([s, value]) => {
+            const key = "set" + s.slice(0, 1).toUpperCase() + s.slice(1);
+            this.$store.commit(key, value);
+          });
+        }
       });
     },
     beforeDestory() {

@@ -2,7 +2,7 @@
 
 eventec redis get getJson pub sub by andriod
 ## before install 
-### you need install  **vue** and **vue-router** first
+### you need install  **vue**, **vue-router** and **vuex** first
 ### android env is also required
 
 ## install
