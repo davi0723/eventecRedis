@@ -1,6 +1,6 @@
 {
   "name": "eventecredis",
-  "version": "2.0.1",
+  "version": "4.0.0",
   "description": "eventec redis event",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/davi0723/eventecRedis.git"
+    "url": "https://github.com/davi0723/eventecRedis.git"
   },
   "keywords": [
     "eventec",

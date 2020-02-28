@@ -1,9 +1,5 @@
+'use strict'
 /* eslint-disable no-undef */
-/**
- * @Author: urcool
- * @Date: 2020-01-21 15:25:58
- * Basic methods
- */
 const toCamelCase = str => {
   const s =
     str &&
@@ -15,71 +11,92 @@ const toCamelCase = str => {
       .join("");
   return s.slice(0, 1).toLowerCase() + s.slice(1);
 };
-const basicFn = (action, topic, msg = null, cb = null) =>
-  new Promise((resolve, reject) => {
+const basicFn = cb => {
+  return new Promise((resolve, reject) => {
+    if (!cb) {
+      reject("cb is needed");
+    }
     if (!android) {
-      reject(new Error("android is undefined"));
+      reject("android is undefined");
     }
-    if (msg && typeof msg !== "string") {
-      msg = JSON.stringify(msg);
-    }
-    let res = false;
     let timer = null;
     let count = 10;
+    let res = false;
     clearInterval(timer);
     timer = setInterval(() => {
-      res = android[`Native${action}`](topic, msg);
       count--;
+      res = cb();
       if (res) {
-        cb && cb();
         clearInterval(timer);
         try {
           res = JSON.parse(res);
         } catch (e) {}
         resolve(res);
       }
-      if (count <= 0) {
+      if (count < 1) {
         clearInterval(timer);
-        reject(new Error("redis conn error"));
+        reject("redis conn error");
       }
     }, 100);
   });
+};
 
-/**
- * @Author: urcool
- * @Date: 2020-01-21 15:26:09
- * Global variables
- */
-const jssubcbMethods = {};
-const taskList = [];
-const jssubcallback = (topic, msg) => {
+// globalVariables
+window.$subcbFn = {};
+window.$taskList = [];
+window.$isTaskRunning = false;
+
+// js sub callback function
+window.jssubcallback = (topic, msg) => {
   try {
     msg = JSON.parse(msg);
-  } catch (e) {
-    console.log(e.message);
-  }
+  } catch (e) {}
   if (typeof msg !== "object") {
     return false;
   }
-  const callback = jssubcbMethods[toCamelCase(topic)];
+  const callback = window.$subcbFn[toCamelCase(topic)];
   callback && callback(msg);
 };
+
 // android Sub
-const Sub = (topic, callback) =>
-  basicFn(
-    "Sub",
-    topic,
-    null,
-    () => (jssubcallback[toCamelCase(topic)] = callback)
-  );
-
+export const Sub = async (topic, cb) => {
+  const subRes = await basicFn(() => android.NativeSub(topic));
+  window.$subcbFn[toCamelCase(topic)] = cb;
+  return subRes;
+};
 // android Pub
-const Pub = (topic, msg) => basicFn("Pub", topic, msg);
+export const Pub = async (msg, topic = "ui.update") => {
+  const pubRes = await basicFn(() => {
+    if (msg && typeof msg !== "string") {
+      msg = JSON.stringify(msg);
+    }
+    return android.NativePub(topic, msg);
+  });
+  return pubRes;
+};
+export const buryingPoint = async data => {
+  const pubRes = await Pub(
+    {
+      type: "interaction:screen_touch",
+      timestamp: Date.now(),
+      data,
+      protocol: "1"
+    },
+    "event.interaction.screen_touch"
+  );
+  return pubRes;
+};
 // android Get
-const Get = key => basicFn("Get", key);
-// android GetJSON
-const GetJson = (key, path = ".") => basicFn("Get", key, path);
+export const Get = async key => {
+  const getRes = await basicFn(() => android.NativeGet(key));
+  return getRes;
+};
 
+// android GetJSON
+export const GetJson = async (key, path = ".") => {
+  const getRes = await basicFn(() => android.NativeGet(key, path));
+  return getRes;
+};
 const defaultFn = a => {
   const { view, id, variables } = a;
   let url = "/" + view;
@@ -99,50 +116,40 @@ const defaultFn = a => {
 const install = (Vue, options = {}) => {
   const taskExecSpeed = options.taskExecSpeed || 500;
   const fn = options.fn || defaultFn;
-  if (window) {
-    window.jssubcallback = jssubcallback;
-  }
-  const bus = new Vue();
-  if (!bus.$bus) {
-    Vue.prototype.$bus = bus;
-  }
-  let FreezingTime = taskExecSpeed;
-  setTimeout(function aaa() {
-    const a = taskList.shift();
-    FreezingTime = taskExecSpeed;
-    if (a) {
-      bus.$bus.$emit("router", a);
-      FreezingTime = a.freezing_time || taskExecSpeed;
-    }
-    setTimeout(aaa, FreezingTime);
-  }, FreezingTime);
-
   Vue.mixin({
     mounted() {
-      this.$bus.$on("router", a => {
-        this.$router.push(fn(a));
-        if (a.variables && this.$store) {
-          Object.entires(a.variables).forEach(([s, value]) => {
-            const key = "set" + s.slice(0, 1).toUpperCase() + s.slice(1);
-            this.$store.commit(key, value);
-          });
-        }
-      });
+      this.ExecuteTask();
     },
-    beforeDestory() {
-      this.$bus.$off("router", a => {
-        this.$router.push(a.view);
-      });
+    methods: {
+      ExecuteTask() {
+        if (window.$isTaskRunning) {
+          return false;
+        }
+        window.$isTaskRunning = true;
+        let FreezingTime = taskExecSpeed;
+        const that = this;
+        setTimeout(function aaa() {
+          const a = window.$taskList.shift();
+          FreezingTime = taskExecSpeed;
+          if (a) {
+            that.$router.push(fn(a));
+            if (a.variables && that.$store) {
+              Object.entries(a.variables).forEach(([s, value]) => {
+                const key = "set" + s.slice(0, 1).toUpperCase() + s.slice(1);
+                that.$store.commit(key, value);
+              });
+            }
+            FreezingTime = a.freezing_time || taskExecSpeed;
+          }
+          this.timer = setTimeout(aaa, FreezingTime);
+        }, FreezingTime);
+      }
     }
   });
   Sub("ui.update", msg => {
-    taskList.push(msg);
+    window.$taskList.push(msg);
   });
 };
 export default {
-  install,
-  Get,
-  GetJson,
-  Pub,
-  Sub
+    install
 };
