@@ -2,9 +2,10 @@
   "name": "eventecredis",
   "version": "4.0.1",
   "description": "eventec redis event",
-  "main": "index.js",
+  "main": "lib/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "babel ./src/index.js -d lib"
   },
   "repository": {
     "type": "git",
@@ -19,5 +20,27 @@
   "bugs": {
     "url": "https://github.com/davi0723/eventecRedis/issues"
   },
-  "homepage": "https://github.com/davi0723/eventecRedis#readme"
+  "homepage": "https://github.com/davi0723/eventecRedis#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.8.6",
+    "@babel/plugin-transform-arrow-functions": "^7.8.3",
+    "@babel/preset-env": "^7.8.6"
+  },
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "chrome": "35"
+          }
+        }
+      ]
+    ],
+    "plugins": [
+      "@babel/plugin-transform-arrow-functions"
+    ]
+  }
 }
