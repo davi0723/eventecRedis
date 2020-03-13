@@ -16,8 +16,8 @@ const basicFn = cb => {
     if (!cb) {
       reject("cb is needed");
     }
-    if (!android) {
-      reject("android is undefined");
+    if (!window.android) {
+      require('eventecandroid')
     }
     let timer = null;
     let count = 10;
@@ -30,7 +30,7 @@ const basicFn = cb => {
         clearInterval(timer);
         try {
           res = JSON.parse(res);
-        } catch (e) {}
+        } catch (e) { }
         resolve(res);
       }
       if (count < 1) {
@@ -42,13 +42,10 @@ const basicFn = cb => {
 };
 
 window.$subcbFn = {};
-window.$taskList = [];
-window.$isTaskRunning = false;
-
 window.jssubcallback = (topic, msg) => {
   try {
     msg = JSON.parse(msg);
-  } catch (e) {}
+  } catch (e) { }
   if (typeof msg !== "object") {
     return false;
   }
@@ -61,6 +58,7 @@ export const Sub = async (topic, cb) => {
   window.$subcbFn[toCamelCase(topic)] = cb;
   return subRes;
 };
+
 export const Pub = async (msg, topic = "ui.update") => {
   const pubRes = await basicFn(() => {
     if (msg && typeof msg !== "string") {
@@ -103,6 +101,8 @@ const defaultFn = a => {
   };
 };
 const install = (Vue, options = {}) => {
+  window.$taskList = [];
+  window.$isTaskRunning = false;
   const taskExecSpeed = options.taskExecSpeed || 500;
   const fn = options.fn || defaultFn;
   Vue.mixin({
@@ -140,5 +140,5 @@ const install = (Vue, options = {}) => {
   });
 };
 export default {
-    install
+  install
 };
