@@ -55,6 +55,7 @@ window.jssubcallback = (topic, msg) => {
 
 export const Sub = async (topic, cb) => {
   const subRes = await basicFn(() => android.NativeSub(topic));
+  console.log('android sub: ' + topic)
   window.$subcbFn[toCamelCase(topic)] = cb;
   return subRes;
 };
@@ -64,6 +65,7 @@ export const Pub = async (msg, topic = "ui.update") => {
     if (msg && typeof msg !== "string") {
       msg = JSON.stringify(msg);
     }
+    console.log('android pub: ' + topic, msg)
     return android.NativePub(topic, msg);
   });
   return pubRes;
@@ -82,11 +84,13 @@ export const buryingPoint = async data => {
 };
 export const Get = async key => {
   const getRes = await basicFn(() => android.NativeGet(key));
+  console.log('android get: ' + key, getRes)
   return getRes;
 };
 
 export const GetJson = async (key, path = ".") => {
   const getRes = await basicFn(() => android.NativeGet(key, path));
+  console.log('android get json: ' + key + ' ' + path, getRes)
   return getRes;
 };
 const defaultFn = a => {
@@ -123,7 +127,8 @@ const install = (Vue, options = {}) => {
           if (a) {
             that.$router.push(fn(a));
             if (a.variables && that.$store) {
-              Object.entries(a.variables).forEach(([s, value]) => {
+              Object.keys(a.variables).forEach((s) => {
+                const value = a.variables[s]
                 const key = "set" + s.slice(0, 1).toUpperCase() + s.slice(1);
                 that.$store.commit(key, value);
               });

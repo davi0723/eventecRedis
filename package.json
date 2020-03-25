@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/davi0723/eventecRedis#readme",
   "dependencies": {
+    "@babel/polyfill": "^7.8.7",
     "eventecandroid": "^1.0.3"
   },
   "devDependencies": {
@@ -36,8 +37,9 @@
         "@babel/preset-env",
         {
           "targets": {
-            "chrome": "35"
-          }
+            "chrome": "52"
+          },
+          "useBuiltIns": "usage"
         }
       ]
     ],
